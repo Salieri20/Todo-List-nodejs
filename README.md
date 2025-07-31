@@ -47,7 +47,10 @@ on:
             - main
             - 'feature/**'
         paths:
-            - '!k8s/**'  # Exclude the k8s folder
+            - '**'
+            - '!k8s/**'  
+            - '!README.md'
+            - '!Ansible/**'
 
 jobs:
     build-and-push:
