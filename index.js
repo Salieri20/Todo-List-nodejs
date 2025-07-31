@@ -82,6 +82,7 @@ app.get('/complete-task', function(req,res){
 });
 
 
+
 // deleting the task to the database
 app.get('/delete-task', function(req,res){
     let id = req.query.id;
