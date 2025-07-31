@@ -6,8 +6,10 @@ on:
             - main
             - 'feature/**'
         paths:
+            - '**'
             - '!k8s/**'  
             - '!README.md'
+            - '!Ansible/**'
 
 jobs:
     build-and-push:
