@@ -1,109 +1,295 @@
+# DevOps Internship Assessment - Todo App
 
-## Documentation
+This repository documents the complete DevOps pipeline for deploying a Node.js Todo application using Docker, GitHub Actions, Ansible, Kubernetes, and ArgoCD.
 
-[Documentation](https://linktodocumentation)
+---
 
-📝 To-Do List nodeJs
+## Part 1: Dockerizing the App & CI Pipeline
 
-The to-do list application is a web-based application that allows users to create and manage a list of tasks. The user interface consists of a form to add new tasks, a list of all tasks, and controls to mark tasks as complete or delete them.
+### Repo Cloned
+Original repo: [Ankit6098/Todo-List-nodejs](https://github.com/Ankit6098/Todo-List-nodejs)
 
-To create the application, Node.js is used to set up the server and handle the logic of the application. Express.js is used to create the routes for the application, allowing the user to interact with the application through a web browser. EJS is used to create the views for the application, allowing the user to see the list of tasks and the form to add new tasks. CSS is used to style the application, making it visually appealing and easy to use.
-
-MongoDB and Mongoose are used to store the tasks in a database, allowing the user to add, delete, and update tasks as needed. Nodemon is used to monitor changes to the code and automatically restart the server, making it easy to develop and test the application.
-
-When the user adds a new task using the form, Node.js and Express.js handle the request and store the task in the database using Mongoose. When the user views the list of tasks, EJS displays the tasks from the database in a list on the web page. When the user marks a task as complete or deletes a task, Node.js and Express.js handle the request and update the database using Mongoose.
-
-Overall, the todo list application using Node.js, Express.js, EJS, CSS, JavaScript, MongoDB, Mongoose, and Nodemon can be a great way to create a functional and interactive web application that allows users to manage their tasks online. With the right combination of technologies, it is possible to create an application that is both functional and aesthetically pleasing, making it easy for users to manage their tasks in a convenient and efficient way.
-
-Technologies Used: NodeJS, ExpressJS, EJS, CSS, JavaScript, Nodemon, MongoDB, Mongoose.
-## Demo
-
-Under process...
-## Authors
-
-- [@AnkitVishwakarma](https://github.com/Ankit6098)
-
-
-## Features
-
-- Create, Update, and Delete Tasks: Enable users to create new tasks, update existing tasks (e.g., mark as completed, edit task details), and delete tasks they no longer need.
-- Task Categories provides Implement the ability for users to categorize their tasks into different categories (e.g., work, personal, shopping) or assign labels/tags to tasks for better organization and filtering.
-- MongoDb to store your the user data
-## Run Locally
-
-Clone the project
-
-```bash
-  git clone https://github.com/Ankit6098/Todos-nodejs
+### MongoDB Setup
+Updated the `.env` file:
+```env
+mongoDbUrl=mongodb://mongodb:27017/mydb
 ```
 
-Go to the project directory and open index.html file
-
-```bash
-  cd Todos-nodejs
+### Dockerfile
+Created a Dockerfile:
+```dockerfile
+FROM node:20-alpine
+# Set the working directory
+WORKDIR /usr/src/app
+# Copy package.json and package-lock.json
+COPY package*.json ./
+# Install dependencies
+RUN npm install 
+# Copy the rest of the application code
+COPY . .
+# Expose the application port
+EXPOSE 4000
+# Start the application
+CMD ["node", "index.js"]
 ```
 
-Install the packages
+### GitHub Actions CI
 
-```bash
-  npm install / npm i
+
+Created `.github/workflows/build-push.yaml`:
+
+```yaml
+name: build-and-push-docker 
+on: 
+    workflow_dispatch:
+    push:
+        branches:
+            - main
+            - 'feature/**'
+        paths:
+            - '!k8s/**'  # Exclude the k8s folder
+
+jobs:
+    build-and-push:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4.2.2
+
+            - name: Login to Docker
+              uses: docker/login-action@v3.4.0
+              with:
+                username: ${{ vars.DOCKERHUB_USERNAME }}
+                password: ${{ secrets.DOCKERHUB_PAT }}
+
+            - name: Docker Build For Testing
+              uses: docker/build-push-action@v6.18.0
+              with:
+                context: .
+                push: true 
+                tags: ${{ vars.DOCKERHUB_USERNAME }}/to-do:${{ github.sha }}
+
+                
+    update-gitops:
+      needs: build-and-push
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout GitOps repo
+          uses: actions/checkout@v4
+          with:
+            repository: Salieri20/Todo-List-nodejs
+            token: ${{ secrets.GITOPS_TOKEN }}
+            path: gitops
+    
+        - name: Update deployment image tag
+          env:
+            DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+          run: |
+            TAG=${GITHUB_SHA}
+            FILE=gitops/k8s/app-deployment.yaml
+            sed -i "s|image: .*/to-do:.*|image: ${DOCKERHUB_USERNAME}/to-do:${TAG}|" $FILE
+            
+    
+        - name: Commit and push change
+          run: |
+            cd gitops
+            git config user.name "github-actions"
+            git config user.email "github-actions@users.noreply.github.com"
+            git add .
+            git commit -m "Update image tag to ${GITHUB_SHA}"
+            git push
+```
+### Why This Setup?
+- **Manual + Auto Trigger**: We used both workflow_dispatch (manual) and push events (on main and feature/**) to trigger builds either manually or via commits.
+- **Path Filtering**: The line - '!k8s/**' ensures that changes limited to Kubernetes YAML files do not retrigger Docker builds unnecessarily.
+- **Separate GitOps Update**: Once the Docker image is built and pushed, we automatically update the app-deployment.yaml file in the same repo (under the k8s/ folder) to reflect the new image tag.
+- **Security**: All sensitive credentials are handled via GitHub Secrets (DOCKERHUB_PAT, GITOPS_TOKEN).
+- **Image Tagging**: The image is tagged with github.sha to ensure traceability and avoid conflicts.
+- **Git Automation**: We configure git with a bot identity to commit the deployment changes without manual interaction. 
+
+---
+
+## Part 2: Ansible for VM Setup
+
+- Created a Linux VM on local machine
+### 🔧 What the Playbook Does
+- Installs essential system tools: `curl`, `wget`, `git`, `yum-utils`, `lvm2`.
+- Adds Docker CE repository and installs Docker components (`docker-ce`, `docker-ce-cli`, `containerd.io`).
+- Enables and starts the Docker service.
+- Adds the current user (`salieri`) to the `docker` group to allow non-root Docker usage.
+- Installs `kubectl` (Kubernetes command-line tool) from the official binary.
+- Installs Minikube to run a local single-node Kubernetes cluster.
+- Starts Minikube with Docker as the driver.
+
+
+### `Ansible/inventory`
+```ini
+[todo_vm]
+<VM-IP> ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/id_rsa
 ```
 
-Start the Server
+### `Ansible/playbook.yml`
+```yaml
+- name: Setup Docker
+  hosts: todo_vm
+  become: true
+  tasks:
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+
+    - name: Start Docker service
+      service:
+        name: docker
+        state: started
+        enabled: true
+```
+
+---
+
+## Part 3 : Kubernetes + ArgoCD GitOps + Health checks + Auto update
+
+- Deployed Kubernetes on the VM
+- Installed ArgoCD
+- Used ArgoCD to watch and sync the `k8s/` folder in the repo
+- Used GitHub Actions for the auto-update part
+
+### `k8s/app-deployment.yaml`
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      imagePullSecrets:
+        - name: regcred
+      containers:
+        - name: myapp
+          image: salieri20/to-do:b790f9966d954920071380f3cccc939db6da755c
+          ports:
+            - containerPort: 3000
+          env:
+            - name: mongoDbUrl
+              value: mongodb://mongodb:27017/mydb
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+              
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp
+spec:
+  type: NodePort
+  selector:
+    app: myapp
+  ports:
+    - port: 4000
+      targetPort: 4000
+      nodePort: 32001
+```
+
+### `k8s/mongodb-deployment.yaml`
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: mongo-storage
+              mountPath: /data/db
+      volumes:
+        - name: mongo-storage
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb
+spec:
+  selector:
+    app: mongodb
+  ports:
+    - port: 27017
+      targetPort: 27017
+```
+
+
+### ArgoCD Setup
+- Exposed ArgoCD UI on port 31381
+- Connected the GitHub repo with the `k8s/` folder as the manifest source
+- ArgoCD continuously syncs to apply new Docker image tags when changed via GitHub Actions
+
+---
+
+## Folder Structure
+
+```
+├── .github/
+│   └── workflows/
+│       └── build-and-push-docker.yaml
+├── ansible/
+│   ├── playbook.yml
+│   └── hosts
+├── k8s/
+│   ├── app-deployment.yaml
+│   └── app-service.yaml
+├── Dockerfile
+├── .env.example
+├── README.md
+```
+
+---
+
+## 🧪 Health Checks
+
+- Implemented in Kubernetes via `livenessProbe` and `readinessProbe`
+- Health endpoint available at `/health`
 
 ```bash
-    npm start / nodemon start
+curl http://<NODE-IP>:32001/health
 ```
-## Acknowledgements
 
- - [nodemon](https://nodemon.io/)
- - [mongoDb](https://www.mongodb.com/)
- - [mongoose](https://mongoosejs.com/)
-
-
-## Screenshots
-
-![225232515-4c100b6b-52e4-40f8-a6d4-85e30dc2f5e7](https://github.com/Ankit6098/Todos-nodejs/assets/92246613/487f548f-7ca6-4183-9443-c88c9f79c3f0)
-![225232960-da554f1f-ba4a-41f8-9856-edaebe339d76](https://github.com/Ankit6098/Todos-nodejs/assets/92246613/25515d2e-1d72-498d-8044-59a01c6b9127)
-![225238829-05433362-5b16-454c-92d5-5e536fe6912e](https://github.com/Ankit6098/Todos-nodejs/assets/92246613/316d15ca-1fe8-4581-80b1-fc316340bba6)
-![225239140-226f8eae-d8b8-4055-8a68-d85d523c2422](https://github.com/Ankit6098/Todos-nodejs/assets/92246613/44a0c418-449e-446f-8a8e-3c4e14fca8bf)
-![225239221-caf86f3d-ef17-4d18-80a6-c72123ff5444](https://github.com/Ankit6098/Todos-nodejs/assets/92246613/2ee90ab0-95d4-44f4-80ac-b17b088ac1ce)
-![225239406-98b7ba7d-df97-4d27-bb66-596a32187d87](https://github.com/Ankit6098/Todos-nodejs/assets/92246613/960ff353-1ce9-4ef8-94e4-10af09184fd2)
-![225239841-4b5d77f0-4a54-4339-b6b3-b6a1be6776b5](https://github.com/Ankit6098/Todos-nodejs/assets/92246613/f5ffc3b8-480f-4d11-9a0b-c469e3c17e8e)
-
-
-## Related
-
-Here are some other projects
-
-[Alarm CLock - javascript](https://github.com/Ankit6098/Todos-nodejs)\
-[IMDb Clone - javascript](https://github.com/Ankit6098/IMDb-Clone)
-
-
-## 🚀 About Me
-I'm a full stack developer...
-
-
-# Hi, I'm Ankit! 👋
-
-I'm a full stack developer 😎 ... Love to Develop Classic Unique fascinating and Eye Catching UI and Love to Create Projects and Building logics.
-## 🔗 Links
-[![portfolio](https://img.shields.io/badge/my_portfolio-000?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ankithub.me/Resume/)
-
-[![linkedin](https://img.shields.io/badge/linkedin-0A66C2?style=for-the-badge&logo=linkedin&logoColorwhite=)](https://www.linkedin.com/in/ankit-vishwakarma-6531221b0/)
-
-
-## Other Common Github Profile Sections
-🧠 I'm currently learning FullStack Developer Course from Coding Ninjas
-
-📫 How to reach me ankitvis609@gmail.com
-
-
-## 🛠 Skills
-React, Java, Javascript, HTML, CSS, Nodejs, ExpressJs, Mongodb, Mongoose...
-
-
-## Feedback
-
-If you have any feedback, please reach out to us at ankitvis609@gmail.com
-
+Returns:
+```json
+{"status":"ok"}
+```
