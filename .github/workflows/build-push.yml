@@ -6,7 +6,8 @@ on:
             - main
             - 'feature/**'
         paths:
-            - '!k8s/**'  # Exclude the k8s folder
+            - '!k8s/**'  
+            - '!README.md'
 
 jobs:
     build-and-push:
