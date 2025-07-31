@@ -43,6 +43,7 @@ jobs:
             TAG=${GITHUB_SHA}
             FILE=gitops/app-deployment.yaml
             sed -i "s|image: .*/to-do:.*|image: ${DOCKERHUB_USERNAME}/to-do:${TAG}|" $FILE
+            
     
         - name: Commit and push change
           run: |
