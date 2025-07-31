@@ -130,20 +130,64 @@ jobs:
 
 ### `Ansible/playbook.yml`
 ```yaml
-- name: Setup Docker
-  hosts: todo_vm
+- name: Prepare CentOS VM for Kubernetes and ArgoCD
+  hosts: all
   become: true
+
   tasks:
-    - name: Install Docker
-      apt:
-        name: docker.io
+    - name: Install required system packages
+      yum:
+        name:
+          - curl
+          - wget
+          - git
+          - yum-utils
+          - device-mapper-persistent-data
+          - lvm2
         state: present
 
-    - name: Start Docker service
-      service:
+    - name: Add Docker CE repo
+      get_url:
+        url: https://download.docker.com/linux/centos/docker-ce.repo
+        dest: /etc/yum.repos.d/docker-ce.repo
+
+    - name: Install Docker
+      yum:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: present
+
+    - name: Enable and start Docker
+      systemd:
         name: docker
-        state: started
         enabled: true
+        state: started
+
+    - name: Add current user to docker group
+      user:
+        name: salieri
+        groups: docker
+        append: yes
+
+    - name: Install kubectl
+      get_url:
+        url: https://dl.k8s.io/release/v1.29.0/bin/linux/amd64/kubectl
+        dest: /usr/local/bin/kubectl
+        mode: '0755'
+        timeout: 120
+
+    - name: Install Minikube
+      get_url:
+        url: https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+        dest: /usr/local/bin/minikube
+        mode: '0755'
+        timeout: 120
+
+    - name: Start Minikube 
+      shell: minikube start --driver=docker
+      when: start_minikube | default(false)
 ```
 
 ---
