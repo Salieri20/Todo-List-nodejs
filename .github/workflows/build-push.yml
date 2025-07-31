@@ -27,6 +27,8 @@ jobs:
                 context: .
                 push: true 
                 tags: ${{ vars.DOCKERHUB_USERNAME }}/to-do:${{ github.sha }}
+
+                
     update-gitops:
       needs: build-and-push
       runs-on: ubuntu-latest
@@ -34,7 +36,7 @@ jobs:
         - name: Checkout GitOps repo
           uses: actions/checkout@v4
           with:
-            repository: Salieri20/k8s-todo-deploy
+            repository: Salieri20/Todo-List-nodejs
             token: ${{ secrets.GITOPS_TOKEN }}
             path: gitops
     
@@ -43,7 +45,7 @@ jobs:
             DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
           run: |
             TAG=${GITHUB_SHA}
-            FILE=gitops/app-deployment.yaml
+            FILE=gitops/k8s/app-deployment.yaml
             sed -i "s|image: .*/to-do:.*|image: ${DOCKERHUB_USERNAME}/to-do:${TAG}|" $FILE
             
     
