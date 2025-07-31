@@ -124,8 +124,8 @@ jobs:
 
 ### `Ansible/inventory`
 ```ini
-[todo_vm]
-<VM-IP> ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/id_rsa
+[nodes]
+node01 ansible_user=salieri ansible_ssh_private_key_file=~/.ssh/id_rsa
 ```
 
 ### `Ansible/playbook.yml`
