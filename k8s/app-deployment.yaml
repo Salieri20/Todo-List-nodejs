@@ -16,7 +16,7 @@ spec:
         - name: regcred
       containers:
         - name: myapp
-          image: salieri20/to-do:3959cf747d7287137f3977651550bb94979cbab9
+          image: salieri20/to-do:54a3e586f044b0015508c5d7d94782e94fae2bf0
           ports:
             - containerPort: 3000
           env:
