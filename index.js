@@ -11,11 +11,7 @@ const Dashboard = require('./models/dashboard');
 const app = express();
 
 // path: routes\index.js
-app.get('/', require('./routes'));
-app.get('/dashboard', require('./routes'));
-app.get('/register', require('./routes'));
-app.get('/alltask', require('./routes'));
-app.get('/completedtask', require('./routes'));
+app.use('/', require('./routes'));
 
 // set up the view engine
 app.set('view engine', 'ejs');
