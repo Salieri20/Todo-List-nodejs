@@ -18,7 +18,7 @@ spec:
         - name: myapp
           image: salieri20/to-do:4efd904d946d8bdb5af9a6531259b10c80c5a365
           ports:
-            - containerPort: 3000
+            - containerPort: 4000
           env:
             - name: mongoDbUrl
               value: mongodb://mongodb:27017/mydb
