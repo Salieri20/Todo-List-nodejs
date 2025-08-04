@@ -128,7 +128,7 @@ jobs:
 ### `Ansible/inventory`
 ```ini
 [nodes]
-node01 ansible_user=salieri ansible_ssh_private_key_file=~/.ssh/id_rsa
+node01 ansible_host=192.168.28.129 ansible_user=salieri ansible_ssh_private_key_file=~/.ssh/id_rsa 
 ```
 
 ### `Ansible/playbook.yml`
