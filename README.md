@@ -45,7 +45,7 @@ on:
     push:
         branches:
             - main
-            - 'feature/**'
+            - 'feature'
         paths:
             - '**'
             - '!k8s/**'  
