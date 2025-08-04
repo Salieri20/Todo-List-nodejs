@@ -170,7 +170,7 @@ node01 ansible_host=192.168.28.129 ansible_user=salieri ansible_ssh_private_key_
 
     - name: Add current user to docker group
       user:
-        name: salieri
+        name: "{{ ansible_user }}"
         groups: docker
         append: yes
 
@@ -188,8 +188,11 @@ node01 ansible_host=192.168.28.129 ansible_user=salieri ansible_ssh_private_key_
         mode: '0755'
         timeout: 120
 
-    - name: Start Minikube 
+    - name: Start Minikube
+      become: false
       shell: minikube start --driver=docker
+      environment:
+        PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
       when: start_minikube | default(false)
 ```
 
