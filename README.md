@@ -9,12 +9,6 @@ This repository documents the complete DevOps pipeline for deploying a Node.js T
 ### Repo Cloned
 Original repo: [Ankit6098/Todo-List-nodejs](https://github.com/Ankit6098/Todo-List-nodejs)
 
-### MongoDB Setup
-Updated the `.env` file:
-```env
-mongoDbUrl=mongodb://mongodb:27017/mydb
-```
-
 ### Dockerfile
 Created a Dockerfile:
 ```dockerfile
