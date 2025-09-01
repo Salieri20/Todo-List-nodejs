@@ -1,4 +1,4 @@
-# DevOps Internship Assessment - Todo App
+# DevOps CI/CD - Todo App
 
 This repository documents the complete DevOps pipeline for deploying a Node.js Todo application using Docker, GitHub Actions, Ansible, Kubernetes, and ArgoCD.
 
